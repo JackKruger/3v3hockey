@@ -19,6 +19,9 @@ python3 -m http.server 8000
 
 - **3v3 arcade hockey** — 3 skaters + an AI goalie per team, on a full rink with
   boards physics, posts, creases and wraparounds behind the net
+- **Two cameras** — classic 2D top-down or a 3D "arcade broadcast" perspective
+  view (extruded boards & glass, 3D nets, arena bowl crowd). Pick it in the
+  lobby (`VIEW`) or flip live mid-game with `V`
 - **Up to 4 human players** on any mix of teams — 2 keyboard layouts + up to 4
   gamepads (Gamepad API, standard mapping), drop-in lobby ("press PASS to join")
 - **AI teammates & opponents** fill every remaining slot (3 difficulty levels)
@@ -45,14 +48,15 @@ python3 -m http.server 8000
 | Deke (dodge) | `Left Shift` | `Right Shift` | RB / R1 |
 | Start / Pause | `Enter` | `Enter` | Start |
 
-`Esc` pauses / backs out. `M` toggles mute (in menus & pause).
+`Esc` pauses / backs out. `M` toggles mute (in menus & pause). `V` switches
+between the 2D and 3D cameras at any time during a match.
 
 ### Lobby
 
 - **PASS** to join (up to 4 players), **DEKE** to leave
 - **◀ ▶** to switch team (max 3 humans per team)
 - **▲ ▼** to highlight a setting, **SHOOT** to change it
-  (period length, difficulty, power-ups)
+  (view, period length, difficulty, power-ups)
 - **START / Enter** to hit the ice
 
 ## Tips

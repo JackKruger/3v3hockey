@@ -20,7 +20,8 @@
 
     if (match) {
       match.update(dt);
-      H.render.renderMatch(ctx, match);
+      const R = lastCfg && lastCfg.view === '3d' ? H.render3d : H.render;
+      R.renderMatch(ctx, match);
       if (match.finished === 'rematch') {
         match = new H.Match(lastCfg);
       } else if (match.finished === 'quit') {
@@ -52,6 +53,10 @@
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyM' && (!match || match.paused || match.state === 'gameOver')) {
       H.audio.setMuted(!H.audio.isMuted());
+    }
+    // live camera toggle: 2D top-down <-> 3D arcade cam
+    if (e.code === 'KeyV' && match && lastCfg) {
+      lastCfg.view = lastCfg.view === '3d' ? '2d' : '3d';
     }
   });
 

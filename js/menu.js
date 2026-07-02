@@ -16,8 +16,9 @@ H.menu = (function () {
   let state = 'title';
   let t = 0;
   let players = []; // {device, name, color, team}
-  const settings = { periodIdx: 2, diffIdx: 1, powerups: true };
-  let cursor = 0; // shared settings cursor: 0 period, 1 difficulty, 2 powerups
+  const settings = { periodIdx: 2, diffIdx: 1, powerups: true, view3d: true };
+  let cursor = 0; // shared settings cursor: 0 view, 1 period, 2 difficulty, 3 powerups
+  const ROWS = 4;
   let startCfg = null;
 
   function reset(to) {
@@ -51,6 +52,7 @@ H.menu = (function () {
       periodLen: PERIODS[settings.periodIdx],
       difficulty: DIFFS[settings.diffIdx],
       powerups: settings.powerups,
+      view: settings.view3d ? '3d' : '2d',
       players: players.map((p) => ({ ...p })),
     };
   }
@@ -85,12 +87,13 @@ H.menu = (function () {
           H.audio.menuMove();
         }
       }
-      if (st.pressed.up) { cursor = (cursor + 2) % 3; H.audio.menuMove(); }
-      if (st.pressed.down) { cursor = (cursor + 1) % 3; H.audio.menuMove(); }
+      if (st.pressed.up) { cursor = (cursor + ROWS - 1) % ROWS; H.audio.menuMove(); }
+      if (st.pressed.down) { cursor = (cursor + 1) % ROWS; H.audio.menuMove(); }
       if (st.pressed.shoot) {
         H.audio.menuMove();
-        if (cursor === 0) settings.periodIdx = (settings.periodIdx + 1) % PERIODS.length;
-        else if (cursor === 1) settings.diffIdx = (settings.diffIdx + 1) % DIFFS.length;
+        if (cursor === 0) settings.view3d = !settings.view3d;
+        else if (cursor === 1) settings.periodIdx = (settings.periodIdx + 1) % PERIODS.length;
+        else if (cursor === 2) settings.diffIdx = (settings.diffIdx + 1) % DIFFS.length;
         else settings.powerups = !settings.powerups;
       }
       if (st.pressed.start) {
@@ -206,12 +209,13 @@ H.menu = (function () {
 
     // settings
     const rows = [
+      ['VIEW', settings.view3d ? '3D ARCADE CAM' : '2D CLASSIC'],
       ['PERIOD LENGTH', H.render.fmtTime(PERIODS[settings.periodIdx])],
       ['DIFFICULTY', DIFF_LABEL[DIFFS[settings.diffIdx]]],
       ['POWER-UPS', settings.powerups ? 'ON' : 'OFF'],
     ];
     rows.forEach((r, i) => {
-      const y = 615 + i * 44;
+      const y = 596 + i * 42;
       const sel = cursor === i;
       g.fillStyle = sel ? '#ffffff' : '#7a8bb0';
       g.font = '900 ' + (sel ? 24 : 20) + 'px ' + FONT;

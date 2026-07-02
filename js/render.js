@@ -517,19 +517,6 @@ H.render = (function () {
     g.font = '900 17px ' + FONT;
     g.fillText(match.overtime ? 'OT' : 'PERIOD ' + match.period, cx, 88);
 
-    // goal lights
-    if (match.fx.goalLight && Math.floor(match.fx.goalLight.t * 6) % 2 === 0) {
-      const side = match.fx.goalLight.side;
-      const x = side === 0 ? cfg.goalX[0] - 45 : cfg.goalX[1] + 45;
-      g.fillStyle = '#ff2020';
-      g.shadowColor = '#ff2020';
-      g.shadowBlur = 30;
-      g.beginPath();
-      g.arc(x, cfg.cy - cfg.goalHalf - 40, 14, 0, Math.PI * 2);
-      g.fill();
-      g.shadowBlur = 0;
-    }
-
     // active effect chips
     let ex = [cx - 270, cx + 270];
     for (let t = 0; t < 2; t++) {
@@ -554,6 +541,22 @@ H.render = (function () {
         g.font = '900 12px ' + FONT;
         g.fillText(def.label + ' ' + Math.ceil(c.t), x, 45);
       });
+    }
+  }
+
+  // goal light at world coords — only used by the 2D top-down view
+  function drawGoalLight2d(g, match) {
+    const cfg = C();
+    if (match.fx.goalLight && Math.floor(match.fx.goalLight.t * 6) % 2 === 0) {
+      const side = match.fx.goalLight.side;
+      const x = side === 0 ? cfg.goalX[0] - 45 : cfg.goalX[1] + 45;
+      g.fillStyle = '#ff2020';
+      g.shadowColor = '#ff2020';
+      g.shadowBlur = 30;
+      g.beginPath();
+      g.arc(x, cfg.cy - cfg.goalHalf - 40, 14, 0, Math.PI * 2);
+      g.fill();
+      g.shadowBlur = 0;
     }
   }
 
@@ -612,7 +615,7 @@ H.render = (function () {
       });
       g.fillStyle = '#55668f';
       g.font = '900 16px ' + FONT;
-      g.fillText('M = MUTE', cfg.W / 2, 640);
+      g.fillText('M = MUTE · V = 2D/3D CAMERA', cfg.W / 2, 640);
     }
   }
 
@@ -696,6 +699,7 @@ H.render = (function () {
     }
     g.globalAlpha = 1;
 
+    drawGoalLight2d(g, match);
     g.restore();
 
     drawHud(g, match);
@@ -707,5 +711,5 @@ H.render = (function () {
     }
   }
 
-  return { renderMatch, makeBackground, roundRectPath, FONT, fmtTime };
+  return { renderMatch, makeBackground, roundRectPath, FONT, fmtTime, drawHud, drawOverlays };
 })();
