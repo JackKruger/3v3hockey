@@ -273,6 +273,7 @@ class Match {
     this.banner = 'FACE OFF';
     this.paused = false;
     this.pauseSel = 0;
+    this.pauseMode = 'menu';
     this.finished = null; // 'rematch' | 'quit'
     this.celeb = null;
     this.otWinner = null;
@@ -309,6 +310,7 @@ class Match {
   defendGoalX(team) { return H.CFG.goalX[team]; }
 
   faceoff(countdown, banner) {
+    H.audio.setSkating(false);
     const C = H.CFG;
     for (let t = 0; t < 2; t++) {
       const dir = t === 0 ? 1 : -1; // attack direction
@@ -529,7 +531,7 @@ class Match {
         break;
       case 'tinyGoalie': foeGoalie.eff.tiny = def.dur; break;
     }
-    H.audio.powerup();
+    H.audio.powerup(type);
     this.popup(s.pos.x, s.pos.y - 50, def.label + '!', def.color);
     this.spawnParticles(s.pos.x, s.pos.y, 18, def.color, 220);
   }
@@ -540,6 +542,7 @@ class Match {
     const inp = H.input;
 
     if (this.state === 'gameOver') {
+      H.audio.setSkating(false);
       this.updateFx(dt);
       for (const dev of inp.allDevices()) {
         const st = inp.get(dev);
@@ -558,12 +561,14 @@ class Match {
     if (!this.players.length && inp.get('kb1').pressed.start) startPressed = true;
 
     if (this.paused) {
+      H.audio.setSkating(false);
       this.handlePauseMenu();
       return;
     }
     if (startPressed || inp.escPressed()) {
       this.paused = true;
       this.pauseSel = 0;
+      this.pauseMode = 'menu';
       H.audio.menuSelect();
       return;
     }
@@ -572,6 +577,7 @@ class Match {
 
     switch (this.state) {
       case 'countdown': {
+        H.audio.setSkating(false);
         this.stateT -= dt;
         const sec = Math.ceil(this.stateT);
         if (!this.fx.beeped[sec] && sec <= 3 && sec >= 1) {
@@ -589,6 +595,7 @@ class Match {
         this.updatePlay(dt);
         break;
       case 'goal':
+        H.audio.setSkating(false);
         this.stateT -= dt;
         // let players glide during celebration
         for (const s of this.skaters) { s.input = { x: 0, y: 0 }; s.update(dt); H.collideBoards(s, s.radius, 0.3); }
@@ -598,6 +605,7 @@ class Match {
         }
         break;
       case 'periodEnd':
+        H.audio.setSkating(false);
         this.stateT -= dt;
         if (this.stateT <= 0) {
           this.period++;
@@ -611,7 +619,20 @@ class Match {
 
   handlePauseMenu() {
     const inp = H.input;
-    const items = 3; // resume, restart, quit
+    if (this.pauseMode === 'controls') {
+      for (const dev of inp.allDevices()) {
+        const st = inp.get(dev);
+        if (st.pressed.start || st.pressed.shoot || st.pressed.pass || st.pressed.check || st.pressed.deke) {
+          this.pauseMode = 'menu';
+          H.audio.menuMove();
+          return;
+        }
+      }
+      if (inp.escPressed()) this.pauseMode = 'menu';
+      return;
+    }
+
+    const items = 4; // resume, controls, restart, quit
     for (const dev of inp.allDevices()) {
       const st = inp.get(dev);
       if (st.pressed.up) { this.pauseSel = (this.pauseSel + items - 1) % items; H.audio.menuMove(); }
@@ -619,7 +640,8 @@ class Match {
       if (st.pressed.start || st.pressed.shoot || st.pressed.pass) {
         H.audio.menuSelect();
         if (this.pauseSel === 0) this.paused = false;
-        else if (this.pauseSel === 1) this.finished = 'rematch';
+        else if (this.pauseSel === 1) this.pauseMode = 'controls';
+        else if (this.pauseSel === 2) this.finished = 'rematch';
         else this.finished = 'quit';
         return;
       }
@@ -683,6 +705,17 @@ class Match {
 
     this.collidePlayers(dt);
     this.updatePuck(dt);
+    if (this.state === 'play') this.updateSkateAudio();
+    else H.audio.setSkating(false);
+  }
+
+  updateSkateAudio() {
+    let maxSpeed = 0;
+    for (const ent of [...this.skaters, ...this.goalies]) {
+      if (ent.frozen || ent.down) continue;
+      maxSpeed = Math.max(maxSpeed, H.M.len(ent.vel.x, ent.vel.y));
+    }
+    H.audio.setSkating(maxSpeed > 35, H.M.clamp((maxSpeed - 35) / 300, 0, 1));
   }
 
   collidePlayers() {
@@ -914,6 +947,7 @@ class Match {
   }
 
   goalScored(team) {
+    H.audio.setSkating(false);
     this.score[team]++;
     // attribution
     let scorer = null, assist = null;
@@ -941,6 +975,7 @@ class Match {
   }
 
   endOfPeriod() {
+    H.audio.setSkating(false);
     H.audio.buzzer();
     if (this.period < 3) {
       this.state = 'periodEnd';
@@ -956,6 +991,7 @@ class Match {
   }
 
   endGame() {
+    H.audio.setSkating(false);
     this.state = 'gameOver';
     const winner = this.score[0] > this.score[1] ? 0 : 1;
     this.winner = winner;

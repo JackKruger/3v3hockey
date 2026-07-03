@@ -16,9 +16,9 @@ H.menu = (function () {
   let state = 'title';
   let t = 0;
   let players = []; // {device, name, color, team}
-  const settings = { periodIdx: 2, diffIdx: 1, powerups: true, view3d: true };
-  let cursor = 0; // shared settings cursor: 0 view, 1 period, 2 difficulty, 3 powerups
-  const ROWS = 4;
+  const settings = { periodIdx: 2, diffIdx: 1, powerups: true };
+  let cursor = 0; // shared settings cursor: 0 period, 1 difficulty, 2 powerups
+  const ROWS = 3;
   let startCfg = null;
 
   function reset(to) {
@@ -27,6 +27,12 @@ H.menu = (function () {
   }
 
   function joined(dev) { return players.find((p) => p.device === dev); }
+  function isPad(dev) { return dev.indexOf('pad') === 0; }
+  function wantsJoin(dev, st) {
+    return st.pressed.pass || (isPad(dev) && (
+      st.pressed.shoot || st.pressed.start || st.pressed.check || st.anyButtonPressed
+    ));
+  }
 
   function join(dev) {
     if (players.length >= 4 || joined(dev)) return;
@@ -52,7 +58,6 @@ H.menu = (function () {
       periodLen: PERIODS[settings.periodIdx],
       difficulty: DIFFS[settings.diffIdx],
       powerups: settings.powerups,
-      view: settings.view3d ? '3d' : '2d',
       players: players.map((p) => ({ ...p })),
     };
   }
@@ -64,9 +69,10 @@ H.menu = (function () {
     if (state === 'title') {
       for (const dev of inp.allDevices()) {
         const st = inp.get(dev);
-        if (st.pressed.start || st.pressed.shoot || st.pressed.pass) {
+        if (st.pressed.start || st.pressed.shoot || st.pressed.pass || (isPad(dev) && st.anyButtonPressed)) {
           state = 'lobby';
-          H.audio.menuSelect();
+          if (isPad(dev)) join(dev);
+          else H.audio.menuSelect();
           return;
         }
       }
@@ -77,8 +83,10 @@ H.menu = (function () {
     for (const dev of inp.allDevices()) {
       const st = inp.get(dev);
       const p = joined(dev);
-      if (st.pressed.pass && !p) join(dev);
-      if (!p) continue;
+      if (!p) {
+        if (wantsJoin(dev, st)) join(dev);
+        continue;
+      }
       if (st.pressed.deke) leave(dev);
       if (st.pressed.left || st.pressed.right) {
         const other = 1 - p.team;
@@ -91,9 +99,8 @@ H.menu = (function () {
       if (st.pressed.down) { cursor = (cursor + 1) % ROWS; H.audio.menuMove(); }
       if (st.pressed.shoot) {
         H.audio.menuMove();
-        if (cursor === 0) settings.view3d = !settings.view3d;
-        else if (cursor === 1) settings.periodIdx = (settings.periodIdx + 1) % PERIODS.length;
-        else if (cursor === 2) settings.diffIdx = (settings.diffIdx + 1) % DIFFS.length;
+        if (cursor === 0) settings.periodIdx = (settings.periodIdx + 1) % PERIODS.length;
+        else if (cursor === 1) settings.diffIdx = (settings.diffIdx + 1) % DIFFS.length;
         else settings.powerups = !settings.powerups;
       }
       if (st.pressed.start) {
@@ -205,11 +212,10 @@ H.menu = (function () {
 
     g.fillStyle = Math.floor(t * 2) % 2 === 0 ? '#ffd54a' : '#c8a020';
     g.font = '900 22px ' + FONT;
-    g.fillText('PRESS PASS ( F / , / X ) TO JOIN — DEKE TO LEAVE', cfg.W / 2, 545);
+    g.fillText('PRESS PASS ( F / , / X ) OR ANY GAMEPAD BUTTON TO JOIN - DEKE TO LEAVE', cfg.W / 2, 545);
 
     // settings
     const rows = [
-      ['VIEW', settings.view3d ? '3D ARCADE CAM' : '2D CLASSIC'],
       ['PERIOD LENGTH', H.render.fmtTime(PERIODS[settings.periodIdx])],
       ['DIFFICULTY', DIFF_LABEL[DIFFS[settings.diffIdx]]],
       ['POWER-UPS', settings.powerups ? 'ON' : 'OFF'],

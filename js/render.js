@@ -544,22 +544,6 @@ H.render = (function () {
     }
   }
 
-  // goal light at world coords — only used by the 2D top-down view
-  function drawGoalLight2d(g, match) {
-    const cfg = C();
-    if (match.fx.goalLight && Math.floor(match.fx.goalLight.t * 6) % 2 === 0) {
-      const side = match.fx.goalLight.side;
-      const x = side === 0 ? cfg.goalX[0] - 45 : cfg.goalX[1] + 45;
-      g.fillStyle = '#ff2020';
-      g.shadowColor = '#ff2020';
-      g.shadowBlur = 30;
-      g.beginPath();
-      g.arc(x, cfg.cy - cfg.goalHalf - 40, 14, 0, Math.PI * 2);
-      g.fill();
-      g.shadowBlur = 0;
-    }
-  }
-
   function banner(g, text, sub, color) {
     const cfg = C();
     g.save();
@@ -578,6 +562,65 @@ H.render = (function () {
       g.fillText(sub, cfg.W / 2, cfg.H / 2 + 46);
     }
     g.restore();
+  }
+
+  function drawPauseControls(g) {
+    const cfg = C();
+    const rows = [
+      ['SKATE', 'W A S D', 'ARROWS', 'LEFT STICK / D-PAD'],
+      ['PASS / JOIN', 'F', ',', 'X'],
+      ['SHOOT', 'G', '.', 'A'],
+      ['BODY CHECK', 'H', '/', 'B'],
+      ['SWITCH SKATER', 'R', 'M', 'Y'],
+      ['DEKE / LEAVE', 'L-SHIFT', 'R-SHIFT', 'RB'],
+      ['PAUSE / START', 'ENTER', 'ENTER', 'MENU'],
+    ];
+    const x = cfg.W / 2 - 520;
+    const y = 172;
+    const w = 1040;
+    const h = 575;
+    const colX = [x + 80, x + 385, x + 600, x + 810];
+
+    g.fillStyle = 'rgba(7,11,22,0.92)';
+    g.strokeStyle = '#3a4a6a';
+    g.lineWidth = 3;
+    roundRectPath(g, x, y, w, h, 14);
+    g.fill();
+    g.stroke();
+
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#ffd54a';
+    g.font = '900 44px ' + FONT;
+    g.fillText('CONTROLS', cfg.W / 2, y + 58);
+
+    g.font = '900 18px ' + FONT;
+    g.fillStyle = '#7ae8ff';
+    ['ACTION', 'P1', 'P2', 'XBOX'].forEach((head, i) => {
+      g.fillText(head, colX[i], y + 122);
+    });
+
+    rows.forEach((row, i) => {
+      const ry = y + 172 + i * 50;
+      if (i % 2 === 0) {
+        g.fillStyle = 'rgba(255,255,255,0.05)';
+        g.fillRect(x + 42, ry - 22, w - 84, 44);
+      }
+      g.font = '900 17px ' + FONT;
+      g.fillStyle = '#ffffff';
+      g.textAlign = 'left';
+      g.fillText(row[0], colX[0] - 58, ry);
+      g.textAlign = 'center';
+      g.fillStyle = '#c8d4ee';
+      g.fillText(row[1], colX[1], ry);
+      g.fillText(row[2], colX[2], ry);
+      g.fillText(row[3], colX[3], ry);
+    });
+
+    g.fillStyle = '#55668f';
+    g.font = '900 16px ' + FONT;
+    g.textAlign = 'center';
+    g.fillText('PRESS ANY ACTION BUTTON OR ESC TO RETURN', cfg.W / 2, y + h - 50);
   }
 
   function drawOverlays(g, match) {
@@ -602,20 +645,24 @@ H.render = (function () {
     if (match.paused && match.state !== 'gameOver') {
       g.fillStyle = 'rgba(5,8,16,0.8)';
       g.fillRect(0, 0, cfg.W, cfg.H);
+      if (match.pauseMode === 'controls') {
+        drawPauseControls(g);
+        return;
+      }
       g.textAlign = 'center';
       g.fillStyle = '#ffd54a';
       g.font = '900 56px ' + FONT;
       g.fillText('PAUSED', cfg.W / 2, 300);
-      const items = ['RESUME', 'RESTART', 'QUIT TO MENU'];
+      const items = ['RESUME', 'CONTROLS', 'RESTART', 'QUIT TO MENU'];
       items.forEach((it, i) => {
         const sel = match.pauseSel === i;
         g.fillStyle = sel ? '#ffffff' : '#7a8bb0';
         g.font = '900 ' + (sel ? 34 : 28) + 'px ' + FONT;
-        g.fillText((sel ? '▶ ' : '') + it, cfg.W / 2, 400 + i * 60);
+        g.fillText((sel ? '▶ ' : '') + it, cfg.W / 2, 380 + i * 56);
       });
       g.fillStyle = '#55668f';
       g.font = '900 16px ' + FONT;
-      g.fillText('M = MUTE · V = 2D/3D CAMERA', cfg.W / 2, 640);
+      g.fillText('M = MUTE', cfg.W / 2, 640);
     }
   }
 
@@ -653,63 +700,5 @@ H.render = (function () {
     g.fillText('SHOOT / START — REMATCH        CHECK / ESC — MENU', cfg.W / 2, 680);
   }
 
-  // --- main entry ---------------------------------------------------------------
-
-  function renderMatch(g, match) {
-    const cfg = C();
-    if (!bg) makeBackground();
-
-    g.save();
-    if (match.fx.shake > 0) {
-      g.translate(H.M.rand(-match.fx.shake, match.fx.shake), H.M.rand(-match.fx.shake, match.fx.shake));
-    }
-
-    g.drawImage(bg, 0, 0);
-
-    if (match.powerup) drawPowerup(g, match.powerup);
-
-    // draw entities sorted by y for a hint of depth
-    const ents = [...match.skaters, ...match.goalies].sort((a, b) => a.pos.y - b.pos.y);
-    for (const e of ents) {
-      if (e.isGoalie) drawGoalie(g, match, e);
-      else drawSkater(g, match, e);
-    }
-
-    drawPuck(g, match);
-
-    // particles
-    for (const pt of match.fx.particles) {
-      const a = 1 - pt.t / pt.life;
-      g.globalAlpha = a;
-      g.fillStyle = pt.color;
-      g.beginPath();
-      g.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
-      g.fill();
-    }
-    g.globalAlpha = 1;
-
-    // popups
-    for (const pp of match.fx.popups) {
-      const a = 1 - pp.t / pp.life;
-      g.globalAlpha = Math.min(1, a * 2);
-      g.fillStyle = pp.color;
-      g.font = '900 22px ' + FONT;
-      g.textAlign = 'center';
-      g.fillText(pp.text, pp.x, pp.y);
-    }
-    g.globalAlpha = 1;
-
-    drawGoalLight2d(g, match);
-    g.restore();
-
-    drawHud(g, match);
-    drawOverlays(g, match);
-
-    if (match.fx.flash > 0) {
-      g.fillStyle = `rgba(255,255,255,${match.fx.flash * 0.5})`;
-      g.fillRect(0, 0, cfg.W, cfg.H);
-    }
-  }
-
-  return { renderMatch, makeBackground, roundRectPath, FONT, fmtTime, drawHud, drawOverlays };
+  return { makeBackground, roundRectPath, FONT, fmtTime, drawHud, drawOverlays };
 })();

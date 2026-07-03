@@ -3,8 +3,9 @@
 A browser-based homage to *3-on-3 NHL Arcade*: over-the-top 3v3 hockey with big
 heads, big hits, power-ups, and **no rules** — no offsides, no penalties, no mercy.
 
-Everything is rendered on a `<canvas>` and all sound is synthesized with WebAudio —
-zero dependencies, zero build step, zero assets.
+Everything is rendered on a `<canvas>`, with bundled sound-effect clips layered
+with lightweight WebAudio ambience and fallbacks. There are still zero
+dependencies and zero build steps.
 
 ## Play
 
@@ -19,9 +20,8 @@ python3 -m http.server 8000
 
 - **3v3 arcade hockey** — 3 skaters + an AI goalie per team, on a full rink with
   boards physics, posts, creases and wraparounds behind the net
-- **Two cameras** — classic 2D top-down or a 3D "arcade broadcast" perspective
-  view (extruded boards & glass, 3D nets, arena bowl crowd). Pick it in the
-  lobby (`VIEW`) or flip live mid-game with `V`
+- **3D arcade camera** — perspective rink view with extruded boards, glass, 3D
+  nets, and an arena bowl crowd
 - **Up to 4 human players** on any mix of teams — 2 keyboard layouts + up to 4
   gamepads (Gamepad API, standard mapping), drop-in lobby ("press PASS to join")
 - **AI teammates & opponents** fill every remaining slot (3 difficulty levels)
@@ -33,8 +33,8 @@ python3 -m http.server 8000
 - **Skill moves** — charged shots with auto-aim, lead passes, dekes with brief
   check-immunity, player switching, goalie saves/covers/clears
 - **Stats** — goals, assists, hits, saves; scorer + assist credited on every goal
-- **Juice** — screen shake, particles, popups, puck trails, synthesized crowd,
-  horn, whistle, post *ping*
+- **Juice** — screen shake, particles, popups, puck trails, bundled puck, menu,
+  power-up, buzzer and skating sounds, synthesized crowd, horn, whistle, post *ping*
 
 ## Controls
 
@@ -48,15 +48,16 @@ python3 -m http.server 8000
 | Deke (dodge) | `Left Shift` | `Right Shift` | RB / R1 |
 | Start / Pause | `Enter` | `Enter` | Start |
 
-`Esc` pauses / backs out. `M` toggles mute (in menus & pause). `V` switches
-between the 2D and 3D cameras at any time during a match.
+`Esc` pauses / backs out. The pause menu includes an in-game controls screen.
+`M` toggles mute (in menus & pause).
 
 ### Lobby
 
-- **PASS** to join (up to 4 players), **DEKE** to leave
+- **PASS** to join (Xbox **X**), or press any Xbox button from the title; **DEKE**
+  to leave
 - **◀ ▶** to switch team (max 3 humans per team)
 - **▲ ▼** to highlight a setting, **SHOOT** to change it
-  (view, period length, difficulty, power-ups)
+  (period length, difficulty, power-ups)
 - **START / Enter** to hit the ice
 
 ## Tips

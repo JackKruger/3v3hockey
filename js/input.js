@@ -35,7 +35,11 @@ H.input = (function () {
     const held = {}, pressed = {}, released = {};
     BTNS.forEach((b) => { held[b] = false; pressed[b] = false; released[b] = false; });
     DIRS.forEach((d) => { pressed[d] = false; });
-    return { x: 0, y: 0, held, pressed, released };
+    return { x: 0, y: 0, held, pressed, released, anyButtonPressed: false };
+  }
+
+  function btnDown(button) {
+    return !!(button && (button.pressed || button.value > 0.5));
   }
 
   function readKb(dev) {
@@ -60,24 +64,27 @@ H.input = (function () {
     const s = blank();
     let x = pad.axes[0] || 0, y = pad.axes[1] || 0;
     // dpad fallback (standard mapping 12-15)
-    if (pad.buttons[14] && pad.buttons[14].pressed) x = -1;
-    if (pad.buttons[15] && pad.buttons[15].pressed) x = 1;
-    if (pad.buttons[12] && pad.buttons[12].pressed) y = -1;
-    if (pad.buttons[13] && pad.buttons[13].pressed) y = 1;
+    if (btnDown(pad.buttons[14])) x = -1;
+    if (btnDown(pad.buttons[15])) x = 1;
+    if (btnDown(pad.buttons[12])) y = -1;
+    if (btnDown(pad.buttons[13])) y = 1;
     const mag = Math.hypot(x, y);
     if (mag < DEADZONE) { x = 0; y = 0; }
     else if (mag > 1) { x /= mag; y /= mag; }
     s.x = x; s.y = y;
     for (const b of BTNS) {
       const idx = PAD_BTN[b];
-      s.held[b] = !!(pad.buttons[idx] && pad.buttons[idx].pressed);
+      s.held[b] = btnDown(pad.buttons[idx]);
     }
+    // Some controllers/browsers expose Xbox Menu as button 7 instead of 9.
+    s.held.start = s.held.start || btnDown(pad.buttons[7]);
+    s.anyButtonHeld = pad.buttons.some(btnDown);
     s.dirHeld = { left: x < -0.5, right: x > 0.5, up: y < -0.5, down: y > 0.5 };
     return s;
   }
 
   function edge(dev, s) {
-    const p = prev[dev] || { held: {}, dirs: {} };
+    const p = prev[dev] || { held: {}, dirs: {}, anyButtonHeld: false };
     BTNS.forEach((b) => {
       s.pressed[b] = (s.held[b] && !p.held[b]) || !!(s.tap && s.tap[b]);
       s.released[b] = !s.held[b] && !!p.held[b];
@@ -85,7 +92,8 @@ H.input = (function () {
     DIRS.forEach((d) => {
       s.pressed[d] = (s.dirHeld[d] && !p.dirs[d]) || !!(s.dirTap && s.dirTap[d]);
     });
-    prev[dev] = { held: { ...s.held }, dirs: { ...s.dirHeld } };
+    s.anyButtonPressed = !!s.anyButtonHeld && !p.anyButtonHeld;
+    prev[dev] = { held: { ...s.held }, dirs: { ...s.dirHeld }, anyButtonHeld: !!s.anyButtonHeld };
     return s;
   }
 
