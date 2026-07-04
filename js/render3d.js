@@ -10,11 +10,13 @@ H.render3d = (function () {
   const BOARD_H = 42;   // world units
   const GLASS_H = 46;
 
-  // camera: centered on x, above & behind the near (high-y) side
-  const CAM = { x: 800, y: 1780, z: 1320 };
-  const TARGET = { x: 800, y: 430, z: 0 };
-  const FOCAL = 1540;
-  const YSHIFT = 6;
+  // camera: centered on x, above & behind the near (high-y) side.
+  // Framing derives from rink size so the whole arena stays in shot.
+  const CS = H.CFG.rink.h / 640;
+  const CAM = { x: H.CFG.cx, y: H.CFG.cy + 1280 * CS, z: 1320 * CS };
+  const TARGET = { x: H.CFG.cx, y: H.CFG.cy - 70 * CS, z: 0 };
+  const FOCAL = 1540 * CS;
+  const YSHIFT = 6 * CS;
 
   let back, upv;
   (function initCam() {
@@ -509,6 +511,39 @@ H.render3d = (function () {
     const r = gl.radius;
     const base = project(gl.pos.x, gl.pos.y, 0);
     const s = base.s;
+
+    if (gl.down) {
+      drawShadow(g, base.x, base.y, r * 1.35, s);
+      const body = project(gl.pos.x, gl.pos.y, 12);
+      g.save();
+      g.translate(body.x, body.y);
+      g.rotate(Math.sin(gl.fallT * 5) * 0.1 + Math.PI / 2);
+      g.fillStyle = '#f5f0e6';
+      g.strokeStyle = team.dark;
+      g.lineWidth = 2.5 * s;
+      g.beginPath();
+      g.ellipse(0, 0, r * 1.15 * s, r * 0.62 * s, 0, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.fillStyle = team.color;
+      g.beginPath();
+      g.ellipse(0, -r * 0.05 * s, r * 0.78 * s, r * 0.42 * s, 0, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#fff';
+      g.font = '900 ' + Math.round(r * 0.42 * s) + 'px ' + FONT;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(String(gl.spec.num), 0, 2 * s);
+      g.restore();
+
+      const label = project(gl.pos.x, gl.pos.y, 76);
+      g.fillStyle = '#ffd54a';
+      g.font = '900 ' + Math.round(13 * s) + 'px ' + FONT;
+      g.textAlign = 'center';
+      g.fillText('DOWN!', label.x, label.y);
+      return;
+    }
+
     drawShadow(g, base.x, base.y, r * 1.15, s);
 
     // pads: two vertical slabs

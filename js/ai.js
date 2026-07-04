@@ -53,10 +53,13 @@ window.H = window.H || {};
         if (d < nearD) { nearD = d; nearOpp = o; }
       }
       // shoot?
-      const inRange = dGoal < 430 && Math.abs(s.pos.y - C.cy) < 240;
-      const pointBlank = dGoal < 190;
+      const inRange = dGoal < 515 && Math.abs(s.pos.y - C.cy) < 290;
+      const pointBlank = dGoal < 220;
       s.ai.shootT = (s.ai.shootT || 0) - dt;
-      if ((inRange && s.ai.shootT <= 0 && Math.random() < diff.react * 0.06) || pointBlank) {
+      if (
+        (inRange && s.ai.shootT <= 0 && Math.random() < diff.react * 0.06) ||
+        (pointBlank && Math.random() < diff.pointBlankShoot)
+      ) {
         match.shoot(s, M.rand(0.55, 1.0));
         s.ai.shootT = 0.8;
         return;
@@ -155,6 +158,7 @@ window.H = window.H || {};
     const puck = match.puck;
     const dir = g.team === 0 ? 1 : -1;
 
+    if (g.down) return;
     if (g.frozen) { g.vel = { x: 0, y: 0 }; return; }
     if (puck.owner === g) { g.vel = { x: 0, y: 0 }; return; }
 

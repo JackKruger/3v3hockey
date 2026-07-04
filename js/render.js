@@ -66,7 +66,7 @@ H.render = (function () {
 
     // ice
     roundRectPath(g, R.x, R.y, R.w, R.h, R.r);
-    const ice = g.createRadialGradient(cfg.cx, cfg.cy, 100, cfg.cx, cfg.cy, 900);
+    const ice = g.createRadialGradient(cfg.cx, cfg.cy, 100, cfg.cx, cfg.cy, cfg.rink.w * 0.625);
     ice.addColorStop(0, '#f4f9ff');
     ice.addColorStop(1, '#cfe0f2');
     g.fillStyle = ice;
@@ -366,6 +366,15 @@ H.render = (function () {
     const team = match.teams[gl.team];
     const r = gl.radius;
     const p = gl.pos;
+
+    g.save();
+    if (gl.down) {
+      g.translate(p.x, p.y);
+      g.rotate(Math.sin(gl.fallT * 5) * 0.12 + Math.PI / 2);
+      g.translate(-p.x, -p.y);
+      g.globalAlpha = 0.95;
+    }
+
     // shadow
     g.fillStyle = 'rgba(30,50,90,0.25)';
     g.beginPath();
@@ -406,6 +415,15 @@ H.render = (function () {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillText(String(gl.spec.num), p.x, p.y + r * 0.55);
+
+    g.restore();
+
+    if (gl.down) {
+      g.fillStyle = '#ffd54a';
+      g.font = '900 13px ' + FONT;
+      g.textAlign = 'center';
+      g.fillText('DOWN!', p.x, p.y - r - 18);
+    }
   }
 
   function drawPuck(g, match) {

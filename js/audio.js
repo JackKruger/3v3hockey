@@ -7,6 +7,12 @@ H.audio = (function () {
   const ASSETS = {
     big: 'assets/big man powerup.mp4',
     buzzer: 'assets/buzzer.mp4',
+    cheerBig: 'assets/crowd cheer big.mp4',
+    oohBig: 'assets/crowd ooh big.mp4',
+    yeah: 'assets/crowd fuck yeah big.mp4',
+    nice: 'assets/crowd very nice big.mp4',
+    rocket: 'assets/rocket shot.mp4',
+    shield: 'assets/juggernaut.mp4',
     menu: 'assets/wort menu sound.mp4',
     puck: 'assets/hitpuck sound effect.mp4',
     skate: 'assets/skate sound effect.mp4',
@@ -18,6 +24,12 @@ H.audio = (function () {
   const CLIP_SETTINGS = {
     big: { volume: 0.9, pool: 2 },
     buzzer: { volume: 0.85, pool: 1 },
+    cheerBig: { volume: 0.8, pool: 2 },
+    oohBig: { volume: 0.55, pool: 2 },
+    yeah: { volume: 0.7, pool: 1 },
+    nice: { volume: 0.7, pool: 1 },
+    rocket: { volume: 1, pool: 2 },
+    shield: { volume: 1, pool: 2 },
     menu: { volume: 0.48, pool: 3 },
     puck: { volume: 0.55, pool: 5 },
     speed: { volume: 0.85, pool: 2 },
@@ -25,10 +37,15 @@ H.audio = (function () {
     voice: { volume: 0.78, pool: 2 },
   };
 
+  const MUSIC = [
+    'assets/backgroundmusic/openrouter-audio-output(1).mp3',
+    'assets/backgroundmusic/openrouter-audio-output(2).mp3',
+    'assets/backgroundmusic/openrouter-audio-output(3).mp3',
+  ];
+  const MUSIC_VOLUME = 0.12;
+
   let ctx = null;
   let master = null;
-  let crowdGain = null;
-  let crowdBase = 0.05;
   let muted = false;
   let assetsReady = false;
   let mp4Supported = false;
@@ -38,6 +55,8 @@ H.audio = (function () {
   let clipHighpass = null;
   let clipLowpass = null;
   let skateDuckUntil = 0;
+  let music = null;
+  let musicIdx = Math.floor(Math.random() * MUSIC.length);
 
   function clamp(v, a, b) {
     return Math.max(a, Math.min(b, v));
@@ -199,11 +218,47 @@ H.audio = (function () {
     }
   }
 
+  function playMusicTrack() {
+    music.src = MUSIC[musicIdx];
+    setElementVolume(music, MUSIC_VOLUME);
+    const p = music.play();
+    if (p && p.catch) p.catch(() => {});
+  }
+
+  function startMusic() {
+    if (typeof Audio === 'undefined' || !MUSIC.length) return;
+    if (music) {
+      // unlock() fires on every pointer/key press; use it to resume if a
+      // previous play() was blocked by the autoplay policy
+      if (music.paused) {
+        const p = music.play();
+        if (p && p.catch) p.catch(() => {});
+      }
+      return;
+    }
+    music = new Audio();
+    music.preload = 'auto';
+    music.playsInline = true;
+    music.addEventListener('ended', () => {
+      musicIdx = (musicIdx + 1) % MUSIC.length;
+      playMusicTrack();
+    });
+    let musicErrors = 0;
+    music.addEventListener('playing', () => { musicErrors = 0; });
+    music.addEventListener('error', () => {
+      if (++musicErrors >= MUSIC.length) return; // every track failed; stop trying
+      musicIdx = (musicIdx + 1) % MUSIC.length;
+      playMusicTrack();
+    });
+    playMusicTrack();
+  }
+
   function syncMuted() {
     for (const key in clips) {
       for (const a of clips[key].pool) a.muted = muted;
     }
     if (skateLoop) skateLoop.muted = muted;
+    if (music) music.muted = muted;
     if (muted) stopSkating();
   }
 
@@ -217,7 +272,6 @@ H.audio = (function () {
       master = ctx.createGain();
       master.gain.value = muted ? 0 : 0.9;
       master.connect(ctx.destination);
-      startCrowd();
       return true;
     } catch (e) {
       ctx = null;
@@ -231,27 +285,6 @@ H.audio = (function () {
     const d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     return buf;
-  }
-
-  function startCrowd() {
-    const src = ctx.createBufferSource();
-    src.buffer = noiseBuffer(2.0);
-    src.loop = true;
-    const bp = ctx.createBiquadFilter();
-    bp.type = 'bandpass';
-    bp.frequency.value = 750;
-    bp.Q.value = 0.5;
-    crowdGain = ctx.createGain();
-    crowdGain.gain.value = crowdBase;
-    src.connect(bp).connect(crowdGain).connect(master);
-    src.start();
-    // slow random murmur
-    setInterval(() => {
-      if (!ctx || muted) return;
-      const t = ctx.currentTime;
-      crowdGain.gain.cancelScheduledValues(t);
-      crowdGain.gain.setTargetAtTime(crowdBase * (0.8 + Math.random() * 0.5), t, 1.2);
-    }, 2500);
   }
 
   function env(gainNode, t, peak, attack, decay) {
@@ -300,6 +333,7 @@ H.audio = (function () {
     unlock() {
       ensure();
       loadAssets();
+      startMusic();
     },
     setMuted(m) {
       muted = m;
@@ -364,6 +398,8 @@ H.audio = (function () {
         big: ['big', 1, 0.96],
         freeze: ['voice', 0.9, 1],
         speed: ['speed', 1, 0.82],
+        rocket: ['rocket', 1, 1],
+        shield: ['shield', 1, 1],
       }[type];
       if (clip) playAsset(clip[0], clip[1], clip[2], { priority: true, duckMs: 1100, retryDelay: 120 });
       synthPowerup();
@@ -381,20 +417,15 @@ H.audio = (function () {
       this.cheer(1.8);
     },
     cheer(dur) {
-      if (!ensure()) return;
-      const t = ctx.currentTime;
-      crowdGain.gain.cancelScheduledValues(t);
-      crowdGain.gain.setValueAtTime(crowdGain.gain.value, t);
-      crowdGain.gain.linearRampToValueAtTime(0.45, t + 0.15);
-      crowdGain.gain.setTargetAtTime(crowdBase, t + (dur || 1.2), 0.8);
+      playAsset('cheerBig');
+      // big cheers (goals, game end) sometimes get a crowd chant on top
+      if ((dur || 0) >= 1.5 && Math.random() < 0.5) {
+        const chant = Math.random() < 0.5 ? 'yeah' : 'nice';
+        window.setTimeout(() => playAsset(chant), 600);
+      }
     },
     ooh() {
-      if (!ensure()) return;
-      const t = ctx.currentTime;
-      crowdGain.gain.cancelScheduledValues(t);
-      crowdGain.gain.setValueAtTime(crowdGain.gain.value, t);
-      crowdGain.gain.linearRampToValueAtTime(0.22, t + 0.1);
-      crowdGain.gain.setTargetAtTime(crowdBase, t + 0.5, 0.6);
+      playAsset('oohBig');
     },
     buzzer() {
       if (playAsset('buzzer')) return;

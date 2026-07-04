@@ -24,7 +24,7 @@ python3 -m http.server 8000
   nets, and an arena bowl crowd
 - **Up to 4 human players** on any mix of teams — 2 keyboard layouts + up to 4
   gamepads (Gamepad API, standard mapping), drop-in lobby ("press PASS to join")
-- **AI teammates & opponents** fill every remaining slot (3 difficulty levels)
+- **AI teammates & opponents** fill every remaining slot (4 difficulty levels)
 - **Power-ups** spawn on the ice: TURBO, BIG MAN, ROCKET SHOT, FREEZE,
   TINY GOALIE, JUGGERNAUT (can be toggled off)
 - **Big hits** — body checks, knockdowns, dizzy stars, huge-hit steamrolls when big
@@ -63,7 +63,7 @@ python3 -m http.server 8000
 ## Tips
 
 - Hold **shoot** to charge a slap shot — release near the net.
-- Shots auto-aim at the corner the goalie isn't covering.
+- Shots go where your skater is aiming; hold shoot and steer before release.
 - Check the puck carrier to force a turnover, then counter fast.
 - Grab **BIG MAN** and just skate through people.
 - **ROCKET SHOT** shots are nearly uncatchable — even more so on a **TINY GOALIE**.

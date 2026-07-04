@@ -6,8 +6,8 @@ window.H = window.H || {};
 H.menu = (function () {
   const FONT = '"Arial Black", "Impact", sans-serif';
   const PERIODS = [60, 120, 180, 300];
-  const DIFFS = ['easy', 'med', 'hard'];
-  const DIFF_LABEL = { easy: 'EASY', med: 'MEDIUM', hard: 'HARD' };
+  const DIFFS = ['rookie', 'easy', 'med', 'hard'];
+  const DIFF_LABEL = { rookie: 'ROOKIE', easy: 'EASY', med: 'MEDIUM', hard: 'HARD' };
   const DEVICE_LABEL = {
     kb1: 'KEYBOARD — WASD', kb2: 'KEYBOARD — ARROWS',
     pad0: 'GAMEPAD 1', pad1: 'GAMEPAD 2', pad2: 'GAMEPAD 3', pad3: 'GAMEPAD 4',
@@ -16,7 +16,7 @@ H.menu = (function () {
   let state = 'title';
   let t = 0;
   let players = []; // {device, name, color, team}
-  const settings = { periodIdx: 2, diffIdx: 1, powerups: true };
+  const settings = { periodIdx: 2, diffIdx: 2, powerups: true };
   let cursor = 0; // shared settings cursor: 0 period, 1 difficulty, 2 powerups
   const ROWS = 3;
   let startCfg = null;

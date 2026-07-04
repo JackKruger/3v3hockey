@@ -5,20 +5,20 @@
 window.H = window.H || {};
 
 H.CFG = {
-  W: 1600, H: 900,
-  rink: { x: 80, y: 180, w: 1440, h: 640, r: 150 },
-  goalInset: 90,     // goal line distance from rink edge
-  goalHalf: 62,      // half of goal mouth height
-  netDepth: 36,
+  W: 1920, H: 1080,
+  rink: { x: 96, y: 216, w: 1728, h: 768, r: 180 },
+  goalInset: 108,    // goal line distance from rink edge
+  goalHalf: 76,      // half of goal mouth height
+  netDepth: 40,
   postR: 5,
   puckR: 8,
   skaterR: 25,
   goalieR: 31,
-  creaseR: 85,
+  creaseR: 95,
 };
-H.CFG.cx = H.CFG.rink.x + H.CFG.rink.w / 2;   // 800
-H.CFG.cy = H.CFG.rink.y + H.CFG.rink.h / 2;   // 500
-H.CFG.goalX = [H.CFG.rink.x + H.CFG.goalInset, H.CFG.rink.x + H.CFG.rink.w - H.CFG.goalInset]; // [170, 1430]
+H.CFG.cx = H.CFG.rink.x + H.CFG.rink.w / 2;   // 960
+H.CFG.cy = H.CFG.rink.y + H.CFG.rink.h / 2;   // 600
+H.CFG.goalX = [H.CFG.rink.x + H.CFG.goalInset, H.CFG.rink.x + H.CFG.rink.w - H.CFG.goalInset]; // [204, 1716]
 
 H.M = {
   clamp: (v, a, b) => Math.max(a, Math.min(b, v)),
@@ -65,9 +65,10 @@ H.TEAMS = [
 H.PLAYER_COLORS = ['#ffe94a', '#7aff9b', '#ff7ae0', '#7ae8ff'];
 
 H.DIFFICULTY = {
-  easy: { aiSpeed: 0.82, react: 0.55, goalieK: 3.2, goalieCatch: -0.12, shotErr: 30 },
-  med:  { aiSpeed: 0.93, react: 0.75, goalieK: 4.6, goalieCatch: 0.0,  shotErr: 16 },
-  hard: { aiSpeed: 1.0,  react: 0.95, goalieK: 6.2, goalieCatch: 0.10, shotErr: 7 },
+  rookie: { aiSpeed: 0.28, react: 0.04, goalieK: 0.7, goalieCatch: -0.72, goalieMinCatch: 0.0,  shotErr: 220, pointBlankShoot: 0.08 },
+  easy:   { aiSpeed: 0.62, react: 0.28, goalieK: 2.0, goalieCatch: -0.35, goalieMinCatch: 0.02, shotErr: 85,  pointBlankShoot: 0.35 },
+  med:    { aiSpeed: 0.93, react: 0.75, goalieK: 4.6, goalieCatch: 0.0,   goalieMinCatch: 0.06, shotErr: 16,  pointBlankShoot: 0.78 },
+  hard:   { aiSpeed: 1.0,  react: 0.95, goalieK: 6.2, goalieCatch: 0.10,  goalieMinCatch: 0.06, shotErr: 7,   pointBlankShoot: 1.0 },
 };
 
 // --- rink geometry helpers ------------------------------------------------
@@ -124,6 +125,21 @@ H.netBox = function (side) {
   const gx = C.goalX[side];
   if (side === 0) return { x: gx - C.netDepth, y: C.cy - C.goalHalf, w: C.netDepth, h: C.goalHalf * 2 };
   return { x: gx, y: C.cy - C.goalHalf, w: C.netDepth, h: C.goalHalf * 2 };
+};
+
+// Net collision for the puck: back wall + the two arms, open at the mouth.
+// (Skaters use the full solid netBox so they can't skate into the goal.)
+H.netWalls = function (side) {
+  const C = H.CFG;
+  const gx = C.goalX[side];
+  const t = 6; // mesh thickness
+  const x0 = side === 0 ? gx - C.netDepth : gx; // interior x-range start
+  const backX = side === 0 ? x0 - t : gx + C.netDepth;
+  return [
+    { x: backX, y: C.cy - C.goalHalf - t, w: t, h: C.goalHalf * 2 + t * 2 }, // back
+    { x: x0, y: C.cy - C.goalHalf - t, w: C.netDepth, h: t },                // top arm
+    { x: x0, y: C.cy + C.goalHalf, w: C.netDepth, h: t },                    // bottom arm
+  ];
 };
 
 // push a circle out of an AABB; returns true if collided
@@ -229,13 +245,21 @@ class Goalie {
     this.facing = { x: dir, y: 0 };
     this.eff = { tiny: 0, freeze: 0 };
     this.holdT = 0;
+    this.fallT = 0;
     this.stats = { saves: 0, goals: 0, assists: 0 };
   }
   get radius() { return H.CFG.goalieR * (this.eff.tiny > 0 ? 0.52 : 1); }
-  get down() { return false; }
+  get down() { return this.fallT > 0; }
   get frozen() { return this.eff.freeze > 0; }
   update(dt) {
     for (const k in this.eff) this.eff[k] = Math.max(0, this.eff[k] - dt);
+    this.fallT = Math.max(0, this.fallT - dt);
+    if (this.down) {
+      this.holdT = 0;
+      const fr = Math.exp(-2.8 * dt);
+      this.vel.x *= fr;
+      this.vel.y *= fr;
+    }
     this.pos.x += this.vel.x * dt;
     this.pos.y += this.vel.y * dt;
   }
@@ -331,6 +355,7 @@ class Match {
       g.pos = { ...g.home };
       g.vel = { x: 0, y: 0 };
       g.holdT = 0;
+      g.fallT = 0;
     }
     this.puck = Object.assign(new Puck(), { pos: { x: C.cx, y: C.cy } });
     this.state = 'countdown';
@@ -364,6 +389,9 @@ class Match {
     }
     p.owner = null;
     p.vel = { x: dir.x * speed, y: dir.y * speed };
+    // a stick poking through the net mesh can release the puck inside the
+    // net box; eject it so it can't register as a goal from behind
+    for (let side = 0; side < 2; side++) H.collideBox(p, H.CFG.puckR, H.netBox(side), 0);
     p.noPick = owner;
     p.noPickT = 0.35;
     p.rocket = !!(opts && opts.rocket);
@@ -373,16 +401,18 @@ class Match {
 
   shoot(s, charge) {
     if (this.puck.owner !== s) return;
-    const C = H.CFG;
-    const gx = this.attackGoalX(s.team);
-    const goalie = this.goalies[s.team === 0 ? 1 : 0];
-    // aim for the corner the goalie covers less, with difficulty-based error
-    let cornerSign = goalie.pos.y > C.cy + 2 ? -1 : goalie.pos.y < C.cy - 2 ? 1 : (Math.random() < 0.5 ? -1 : 1);
-    const err = s.controlledBy != null ? 10 : this.diff.shotErr;
-    const targetY = C.cy + cornerSign * (C.goalHalf - 16) + H.M.rand(-err, err);
-    let aim = H.M.norm(gx - this.puck.pos.x, targetY - this.puck.pos.y);
-    // blend a bit of the player's own facing for manual control
-    aim = H.M.norm(aim.x + s.facing.x * 0.22, aim.y + s.facing.y * 0.22);
+    let aim;
+    if (s.controlledBy != null) {
+      // Human shots go exactly where the skater is aimed; no goal lock-on.
+      aim = H.M.len(s.input.x, s.input.y) > 0.15 ? H.M.norm(s.input.x, s.input.y) : { ...s.facing };
+    } else {
+      const C = H.CFG;
+      const gx = this.attackGoalX(s.team);
+      const goalie = this.goalies[s.team === 0 ? 1 : 0];
+      const cornerSign = goalie.pos.y > C.cy + 2 ? -1 : goalie.pos.y < C.cy - 2 ? 1 : (Math.random() < 0.5 ? -1 : 1);
+      const targetY = C.cy + cornerSign * (C.goalHalf - 16) + H.M.rand(-this.diff.shotErr, this.diff.shotErr);
+      aim = H.M.norm(gx - this.puck.pos.x, targetY - this.puck.pos.y);
+    }
     const rocket = s.eff.rocket > 0;
     const speed = (640 + 560 * H.M.clamp(charge, 0, 1)) * s.spec.shot * (rocket ? 1.5 : 1) * (s.eff.big > 0 ? 1.12 : 1);
     this.recordTouch(s);
@@ -435,10 +465,12 @@ class Match {
   }
 
   knockdown(victim, attacker) {
-    victim.fallT = 1.35;
-    victim.charge = 0;
+    victim.fallT = victim.isGoalie ? 1.6 : 1.35;
+    if (victim.isGoalie) victim.holdT = 0;
+    else victim.charge = 0;
     const n = H.M.norm(victim.pos.x - attacker.pos.x, victim.pos.y - attacker.pos.y);
-    const power = attacker.eff.big > 0 ? 640 : 460;
+    const basePower = victim.isGoalie ? 360 : 460;
+    const power = attacker.eff.big > 0 ? basePower + 180 : basePower;
     victim.vel.x += n.x * power + attacker.vel.x * 0.35;
     victim.vel.y += n.y * power + attacker.vel.y * 0.35;
     attacker.stats.hits++;
@@ -452,7 +484,12 @@ class Match {
     H.audio.hit(attacker.eff.big > 0);
     this.fx.shake = Math.max(this.fx.shake, attacker.eff.big > 0 ? 12 : 7);
     this.spawnParticles(victim.pos.x, victim.pos.y, 14, '#ffffff', 260);
-    this.popup(victim.pos.x, victim.pos.y - 40, attacker.eff.big > 0 ? 'HUGE HIT!' : 'HIT!', '#ffffff');
+    this.popup(
+      victim.pos.x,
+      victim.pos.y - 40,
+      victim.isGoalie ? 'GOALIE DOWN!' : (attacker.eff.big > 0 ? 'HUGE HIT!' : 'HIT!'),
+      '#ffffff'
+    );
   }
 
   switchControl(player) {
@@ -755,11 +792,13 @@ class Match {
   }
 
   resolveCheck(att, vic) {
-    if (att.isGoalie || vic.isGoalie) return;
+    if (att.isGoalie) return;
     if (att.team === vic.team) return;
     if (vic.down || vic.immuneT > 0 || vic.eff.shield > 0) return;
-    const bigSteamroll = att.eff.big > 0 && vic.eff.big <= 0 && H.M.len(att.vel.x, att.vel.y) > 220;
-    if (att.checkT > 0 || bigSteamroll) {
+    const speed = H.M.len(att.vel.x, att.vel.y);
+    const bigSteamroll = !vic.isGoalie && att.eff.big > 0 && vic.eff.big <= 0 && speed > 220;
+    const goalieCrash = vic.isGoalie && (att.checkT > 0 || (att.eff.big > 0 && speed > 240));
+    if (att.checkT > 0 || bigSteamroll || goalieCrash) {
       att.checkT = 0;
       this.knockdown(vic, att);
     }
@@ -837,9 +876,9 @@ class Match {
       }
     }
 
-    // nets (solid except handled goal mouth)
+    // nets: open at the mouth so shots sail in; walls keep the puck contained
     for (let side = 0; side < 2; side++) {
-      if (H.collideBox(p, C.puckR, H.netBox(side), 0.4)) break;
+      for (const wall of H.netWalls(side)) H.collideBox(p, C.puckR, wall, 0.4);
     }
 
     const hit = H.collideBoards(p, C.puckR, 0.72);
@@ -871,6 +910,7 @@ class Match {
   }
 
   goaliePuck(g) {
+    if (g.down) return;
     const p = this.puck;
     const d = H.M.dist(g.pos, p.pos);
     const rr = g.radius + H.CFG.puckR + 4;
@@ -883,7 +923,8 @@ class Match {
       if (p.rocket) catchP -= 0.38;
       if (g.eff.tiny > 0) catchP *= 0.3;
       g.stats.saves++;
-      if (Math.random() < H.M.clamp(catchP, 0.06, 0.95)) {
+      const minCatch = this.diff.goalieMinCatch == null ? 0.06 : this.diff.goalieMinCatch;
+      if (Math.random() < H.M.clamp(catchP, minCatch, 0.95)) {
         // catch & cover
         p.owner = g;
         p.rocket = false;
@@ -939,8 +980,10 @@ class Match {
     const C = H.CFG;
     if (Math.abs(p.pos.y - C.cy) >= C.goalHalf - 2) return false;
     let scoringTeam = null;
-    if (p.vel.x < 0 && p.pos.x < C.goalX[0] - C.puckR + 2) scoringTeam = 1;
-    if (p.vel.x > 0 && p.pos.x > C.goalX[1] + C.puckR - 2) scoringTeam = 0;
+    // must be past the goal line but still inside the net's depth — a puck
+    // in the wraparound lane behind the net is past the line too
+    if (p.vel.x < 0 && p.pos.x < C.goalX[0] - C.puckR + 2 && p.pos.x > C.goalX[0] - C.netDepth) scoringTeam = 1;
+    if (p.vel.x > 0 && p.pos.x > C.goalX[1] + C.puckR - 2 && p.pos.x < C.goalX[1] + C.netDepth) scoringTeam = 0;
     if (scoringTeam == null) return false;
     this.goalScored(scoringTeam);
     return true;
